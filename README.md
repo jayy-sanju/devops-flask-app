@@ -106,3 +106,6 @@ http://localhost:5000
 
 ---
 
+## 🏗️ Architecture Diagram
+
+![Architecture](architecturediagram.png)
