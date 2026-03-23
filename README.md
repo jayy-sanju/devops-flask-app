@@ -1,38 +1,69 @@
-# 🚀 DevOps Flask App (Two-Tier Architecture)
+# 🚀 Flask DevOps 3-Tier Application
 
 ## 📌 Project Overview
 
-This project demonstrates a complete DevOps workflow by deploying a containerized Flask application with a MySQL database using Docker, CI/CD, and AWS EC2.
+This project demonstrates a production-style DevOps workflow by deploying a containerized Flask application using a **3-tier architecture** with NGINX, Flask, and MySQL.
 
 ---
 
 ## 🧱 Architecture
 
-* Flask (Backend)
-* MySQL (Database)
-* Docker & Docker Compose
-* GitHub Actions (CI/CD)
-* AWS EC2 (Deployment)
+User → NGINX → Flask → MySQL
+
+* **NGINX** → Reverse proxy (entry point)
+* **Flask** → Backend application logic
+* **MySQL** → Database
+
+                         🌐 Internet
+                              │
+                              ▼
+                    ┌──────────────────┐
+                    │   AWS EC2        │
+                    │ (Ubuntu Server)  │
+                    └────────┬─────────┘
+                             │
+                 ┌───────────▼───────────┐
+                 │   Docker Network      │
+                 │ (docker-compose)      │
+                 └───────────┬───────────┘
+                             │
+        ┌────────────────────┼────────────────────┐
+        │                    │                    │
+        ▼                    ▼                    ▼
+┌───────────────┐   ┌───────────────┐   ┌───────────────┐
+│    NGINX      │   │     Flask     │   │     MySQL     │
+│  (Port 80)    │   │  (Port 5000)  │   │  (Port 3306)  │
+│ Reverse Proxy │──▶│ Application   │──▶│   Database    │
+└───────────────┘   └───────────────┘   └───────────────┘
+        ▲
+        │
+        ▼
+   👤 User (Browser)
+   http://<EC2-PUBLIC-IP>
 
 ---
 
 ## ⚙️ Tech Stack
 
 * Python (Flask)
-* Docker
-* Docker Compose
-* GitHub Actions
-* AWS EC2
+* MySQL
+* Docker & Docker Compose
+* NGINX
+* GitHub Actions (CI/CD)
+* AWS EC2 (Deployment)
 
 ---
 
 ## 🚀 Features
 
-* Containerized application using Docker
+* 3-tier architecture
+* Reverse proxy using NGINX
 * Multi-container setup with Docker Compose
-* CI pipeline with GitHub Actions
-* Automated deployment (coming next)
-* Health check endpoint
+* Service-to-service communication using Docker network
+* MySQL database integration
+* Health check endpoint (`/health`)
+* Login & Register functionality
+* CI/CD pipeline with GitHub Actions
 
 ---
 
@@ -41,69 +72,74 @@ This project demonstrates a complete DevOps workflow by deploying a containerize
 ```
 .
 ├── app.py
-├── requirements.txt
 ├── Dockerfile
 ├── docker-compose.yml
+├── nginx/
+│   └── conf/nginx.conf
+├── templates/
 └── .github/workflows/ci.yml
 ```
 
 ---
 
-## 🛠️ Setup Instructions
+# 🧩 Application Code
 
-### 1. Clone repository
-
-```
-git clone https://github.com/jayy-sanju/devops-flask-app.git
-cd devops-flask-app
-```
-
-### 2. Run with Docker Compose
-
-```
-docker compose up --build
-```
-
-### 3. Access application
-
-```
-http://localhost:5000
-
-```
-
-## 🛠️ Step-by-Step Implementation
-
-### 🔹 1. Create Flask Application
-
-```bash
-mkdir devops-flask-app
-cd devops-flask-app
-```
-
-Create `app.py`:
+## 🔹 app.py
 
 ```python
-from flask import Flask
+from flask import Flask, render_template, request
 import mysql.connector
-import os
+import time
 
 app = Flask(__name__)
 
-def get_db_connection():
-    return mysql.connector.connect(
-        host=os.getenv("DB_HOST", "localhost"),
-        user=os.getenv("DB_USER", "root"),
-        password=os.getenv("DB_PASSWORD", "password"),
-        database=os.getenv("DB_NAME", "testdb")
-    )
+while True:
+    try:
+        db = mysql.connector.connect(
+            host="mysql",
+            user="root",
+            password="root",
+            database="testdb"
+        )
+        print("Connected to MySQL ✅")
+        break
+    except Exception as e:
+        print("Waiting for MySQL...", e)
+        time.sleep(2)
 
 @app.route('/')
 def home():
-    try:
-        conn = get_db_connection()
-        return "Connected to MySQL!"
-    except:
-        return "Database connection failed!"
+    return render_template("index.html")
+
+@app.route('/register', methods=['POST'])
+def register():
+    username = request.form['username']
+    password = request.form['password']
+
+    cursor = db.cursor()
+    cursor.execute(
+        "INSERT INTO users (username, password) VALUES (%s, %s)",
+        (username, password)
+    )
+    db.commit()
+    return "User Registered ✅"
+
+@app.route('/login', methods=['POST'])
+def login():
+    username = request.form['username']
+    password = request.form['password']
+
+    cursor = db.cursor()
+    cursor.execute(
+        "SELECT * FROM users WHERE username=%s AND password=%s",
+        (username, password)
+    )
+    user = cursor.fetchone()
+
+    if user:
+        return "Login Successful ✅"
+    else:
+        return "Invalid Credentials ❌"
 
 @app.route('/health')
 def health():
@@ -115,78 +151,105 @@ if __name__ == '__main__':
 
 ---
 
-### 🔹 2. Install Dependencies
+## 🔹 templates/index.html
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-pip install flask mysql-connector-python
+```html
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Flask DevOps App</title>
+</head>
+<body>
+
+<h2>Register</h2>
+<form action="/register" method="POST">
+    <input name="username" placeholder="Username" required><br><br>
+    <input name="password" type="password" placeholder="Password" required><br><br>
+    <button type="submit">Register</button>
+</form>
+
+<hr>
+
+<h2>Login</h2>
+<form action="/login" method="POST">
+    <input name="username" placeholder="Username" required><br><br>
+    <input name="password" type="password" placeholder="Password" required><br><br>
+    <button type="submit">Login</button>
+</form>
+
+</body>
+</html>
 ```
 
 ---
 
-### 🔹 3. Create Dockerfile
+# 🧩 DevOps Configuration
+
+## 🔹 Dockerfile
 
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.9
 
 WORKDIR /app
 
-COPY requirements.txt /app/
-RUN pip install -r requirements.txt
+COPY . .
 
-COPY . /app/
+RUN pip install flask mysql-connector-python
 
 CMD ["python", "app.py"]
 ```
 
 ---
 
-### 🔹 4. Build and Run Docker Container
-
-```bash
-docker build -t flask-devops-app .
-docker run -d -p 5000:5000 flask-devops-app
-```
-
----
-
-### 🔹 5. Create Docker Compose Setup
+## 🔹 docker-compose.yml
 
 ```yaml
-version: '3'
-
 services:
-  web:
-    build: .
+  nginx:
+    image: nginx:latest
     ports:
-      - "5000:5000"
-    environment:
-      - DB_HOST=db
-      - DB_USER=root
-      - DB_PASSWORD=password
-      - DB_NAME=testdb
+      - "8080:80"
+    volumes:
+      - ./nginx/conf/nginx.conf:/etc/nginx/conf.d/default.conf
     depends_on:
-      - db
+      - flask
 
-  db:
-    image: mysql:8
+  flask:
+    build: .
+    expose:
+      - "5000"
+    depends_on:
+      - mysql
+
+  mysql:
+    image: mysql:5.7
+    restart: always
     environment:
-      MYSQL_ROOT_PASSWORD: password
+      MYSQL_ROOT_PASSWORD: root
       MYSQL_DATABASE: testdb
+    ports:
+      - "3306:3306"
 ```
 
 ---
 
-### 🔹 6. Run Multi-Container Setup
+## 🔹 nginx/conf/nginx.conf
 
-```bash
-docker compose up --build
+```nginx
+server {
+    listen 80;
+
+    location / {
+        proxy_pass http://flask:5000;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+    }
+}
 ```
 
 ---
 
-### 🔹 7. CI/CD Setup (GitHub Actions)
+## 🔹 CI/CD Pipeline (.github/workflows/ci.yml)
 
 ```yaml
 name: CI Pipeline
@@ -202,67 +265,79 @@ jobs:
 
     steps:
       - uses: actions/checkout@v3
-      - run: docker build -t flask-devops-app .
-      - run: docker run -d -p 5000:5000 flask-devops-app
-      - run: sleep 10
-      - run: curl http://localhost:5000/health
+
+      - name: Build Docker image
+        run: docker build -t flask-devops-app .
+
+      - name: Run container
+        run: docker run -d -p 5000:5000 flask-devops-app
+
+      - name: Wait for app
+        run: sleep 10
+
+      - name: Health check
+        run: curl http://localhost:5000/health
 ```
 
 ---
 
-### 🔹 8. Deploy on AWS EC2
+# 🧩 Database Setup
+
+```sql
+CREATE DATABASE IF NOT EXISTS testdb;
+
+USE testdb;
+
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100),
+    password VARCHAR(100)
+);
+```
+
+---
+
+# 🛠️ Setup Instructions
 
 ```bash
-ssh -i flask-key.pem ubuntu@<EC2_PUBLIC_IP>
-
-sudo apt update
-sudo apt install docker.io git docker-compose -y
-
-git clone https://github.com/YOUR_USERNAME/devops-flask-app.git
+git clone https://github.com/jayy-sanju/devops-flask-app.git
 cd devops-flask-app
-
-docker compose up -d --build
+docker compose up --build
 ```
 
 ---
 
+# 🌐 Access Application
+
+```
+http://localhost:8080
+```
 
 ---
 
-## 🔄 CI/CD Pipeline
+# 🔄 Evolution
 
-* Trigger: Push to main branch
-* Build Docker image
-* Run container
-* Perform health check
+This project was initially built as a **2-tier architecture** and later upgraded to a **3-tier architecture using NGINX**, improving scalability and separation of concerns.
 
 ---
 
-## 🌐 Deployment
+# 🧠 Key Learnings
 
-* Deployed on AWS EC2
-* Accessible via public IP
-
----
-
-## 🧠 Key Learnings
-
-* Containerization using Docker
-* Multi-service architecture
-* CI/CD pipeline implementation
-* Cloud deployment using AWS
+* Docker containerization
+* Multi-container orchestration
+* Reverse proxy using NGINX
+* Docker networking
+* Debugging container failures
+* CI/CD pipelines
+* Cloud deployment basics
 
 ---
 
-## 🔥 Future Improvements
+# 🔥 Future Improvements
 
-* Terraform for infrastructure automation
-* Nginx reverse proxy
-* HTTPS setup
+* AWS RDS integration
+* Docker Hub / ECR image push
+* Load balancing
+* Terraform automation
+* HTTPS (SSL)
 * Kubernetes deployment
-
----
-
-## 🏗️ Architecture Diagram
-
-![Architecture](architecturediagram.png)
