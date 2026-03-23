@@ -341,3 +341,7 @@ This project was initially built as a **2-tier architecture** and later upgraded
 * Terraform automation
 * HTTPS (SSL)
 * Kubernetes deployment
+
+# 🏗️ Architecture Diagram
+
+![Architecture Diagram](architecture.png)
